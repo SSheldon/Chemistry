@@ -10,6 +10,7 @@ namespace Chemistry.Structure.Organic
     {
         BondingAtom[] chain;
         Dictionary<Group, List<int>> groups;
+        string name;
 
         public BondingAtom this[int i]
         {
@@ -32,16 +33,10 @@ namespace Chemistry.Structure.Organic
         {
             chain = new CarbonChainFinder(atoms).GetChain();
             AssignGroupLocations();
-            foreach (KeyValuePair<Group, List<int>> kvp in groups)
-            {
-                Console.Write(kvp.Key.ToString() + " ");
-                foreach (int i in kvp.Value)
-                    Console.Write(i + " ");
-                Console.WriteLine();
-            }
-            WriteStructure();
+            AssignName();
         }
 
+        #region StructureWriting
         public void WriteStructure()
         {
             for (int i = 0; i < chain.Length; i++)
@@ -97,7 +92,9 @@ namespace Chemistry.Structure.Organic
                 }
             }
         }
+        #endregion
 
+        #region ChainAssignment
         void AssignGroupLocations()
         {
             groups = new Dictionary<Group,List<int>>();
@@ -192,6 +189,7 @@ namespace Chemistry.Structure.Organic
                     return first <= last;
             }
         }
+        #endregion
 
         Group HighestPrecedenceGroup()
         {
@@ -224,48 +222,223 @@ namespace Chemistry.Structure.Organic
             return counts;
         }
 
-        public static string Prefix(int length)
+        public override string ToString()
+        {
+            return name;
+        }
+
+        #region Naming
+        static string ChainLengthPrefix(int digit, int place)
+        {
+            switch (place)
+            {
+                case 0:
+                    switch (digit)
+                    {
+                        case 0: return "";
+                        case 1: return "hen";
+                        case 2: return "do";
+                        case 3: return "tri";
+                        case 4: return "tetr";
+                        case 5: return "pent";
+                        case 6: return "hex";
+                        case 7: return "hept";
+                        case 8: return "oct";
+                        case 9: return "non";
+                    }
+                    throw new ArgumentException();
+                case 1:
+                    switch (digit)
+                    {
+                        case 0: return "";
+                        case 1: return "dec";
+                        case 2: return "cos";
+                        default: return ChainLengthPrefix(digit, 0) + "acont";
+                    }
+                default: throw new ArgumentException();
+            }
+        }
+
+        static string ChainLengthPrefix(int length)
         {
             switch (length)
             {
-                case 1:
-                    return "meth";
-                case 2:
-                    return "eth";
-                case 3:
-                    return "prop";
-                case 4:
-                    return "but";
-                case 5:
-                    return "pent";
-                case 6:
-                    return "hex";
-                case 7:
-                    return "hept";
-                case 8:
-                    return "oct";
-                case 9:
-                    return "non";
-                case 10:
-                    return "dec";
+                case 1: return "meth";
+                case 2: return "eth";
+                case 3: return "prop";
+                case 4: return "but";
                 case 11:
-                    return "undec";
-                case 12:
-                    return "dodec";
-                case 13:
-                    return "tridec";
-                case 14:
-                    return "tetradec";
-                case 15:
-                    return "pentadec";
+                    return "un" + ChainLengthPrefix(1, 1);
                 case 20:
-                    return "eicos";
-                case 30:
-                    return "triacont";
-                default:
-                    throw new ArgumentException();
+                    return "i" + ChainLengthPrefix(2, 1);
+                case 21:
+                    return ChainLengthPrefix(1, 0) + "i" + ChainLengthPrefix(2, 1);
+            }
+            string s = "";
+            for (int i = 0; length > 0; i++)
+            {
+                int digit = length % 10;
+                if (digit != 0)
+                {
+                    s += ChainLengthPrefix(digit, i);
+                    if (i == 0 && length > 10 && digit > 3) s += "a";
+                }
+                length /= 10;
+            }
+            return s;
+        }
+
+        void AssignName()
+        {
+            name = GetNamePrefix() + Suffix(ChainLengthPrefix(chain.Length), GetNameSuffix());
+        }
+
+        string GetNamePrefix()
+        {
+            Dictionary<string, List<int>> prefixes = new Dictionary<string, List<int>>();
+            Group highest = HighestPrecedenceGroup();
+            foreach (Group group in groups.Keys)
+            {
+                if (group != Group.Alkyl && group != Group.Alkenyl && group != Group.Alkynyl && group != highest)
+                    prefixes.Add(GroupPrefix(group), groups[group]);
+            }
+            if (groups.ContainsKey(Group.Alkyl)) AddAlkylPrefixes(prefixes);
+            return Affix(prefixes);
+        }
+
+        void AddAlkylPrefixes(Dictionary<string, List<int>> prefixes)
+        {
+            for (int i = 0; i < chain.Length; i++)
+            {
+                foreach (BondingAtom child in chain[i])
+                {
+                    if (child.Element == Element.C && !IsInChain(child, i))
+                    {
+                        //an alkyl!
+                        string prefix = ChainLengthPrefix(AlkylLength(child, chain[i])) + "yl";
+                        if (!prefixes.ContainsKey(prefix))
+                            prefixes.Add(prefix, new List<int>());
+                        prefixes[prefix].Add(i);
+                    }
+                }
             }
         }
+
+        int AlkylLength(BondingAtom b, BondingAtom parent)
+        {
+            foreach (BondingAtom child in b)
+            {
+                if (child != parent) return AlkylLength(child, b) + 1;
+            }
+            return 1;
+        }
+
+        string GetNameSuffix()
+        {            
+            Group highest = HighestPrecedenceGroup();
+            if (highest == Group.Alkyl) return "ane";
+            string suffix = "";
+            if (groups.ContainsKey(Group.Alkenyl)) suffix = Suffix(suffix, Affix(GroupSuffix(Group.Alkenyl), groups[Group.Alkenyl]));
+            if (groups.ContainsKey(Group.Alkynyl)) suffix = Suffix(suffix, Affix(GroupSuffix(Group.Alkynyl), groups[Group.Alkynyl]));
+            switch (highest)
+            {
+                case Group.Alkenyl:
+                case Group.Alkynyl:
+                    return suffix;
+                case Group.Carboxyl:
+                case Group.Formyl:
+                    return Suffix(suffix, GroupCountPrefix(groups[highest].Count) + GroupSuffix(highest));
+                default:
+                    return Suffix(suffix, Affix(GroupSuffix(highest), groups[highest]));
+            }
+        }
+
+        string Suffix(string stem, string suffix)
+        {
+            if (stem.Length != 0 && suffix.Length != 0 && char.IsDigit(suffix[0])) return stem + "-" + suffix;
+            else return stem + suffix;
+        }
+
+        string Prefix(string stem, string prefix)
+        {
+            if (stem.Length != 0 && char.IsDigit(stem[0])) return prefix + "-" + stem;
+            else return prefix + stem;
+        }
+
+        string Affix(Dictionary<string, List<int>> affixes)
+        {
+            string affix = "";
+            while (affixes.Count != 0)
+            {
+                string group = Lowest(affixes.Keys);
+                affix = Suffix(affix, Affix(group, affixes[group]));
+                affixes.Remove(group);
+            }
+            return affix;
+        }
+
+        string Affix(string affix, List<int> locations)
+        {
+            locations.Sort();
+            string s = "";
+            s += locations[0] + 1;
+            for (int i = 1; i < locations.Count; i++)
+                s += "," + (locations[i] + 1);
+            s += "-" + GroupCountPrefix(locations.Count) + affix;
+            return s;
+        }
+
+        string Lowest(IEnumerable<string> affixes)
+        {
+            string lowest = null;
+            foreach (string affix in affixes)
+            {
+                if (lowest == null || affix.CompareTo(lowest) < 0) lowest = affix;
+            }
+            return lowest;
+        }
+
+        string GroupCountPrefix(int count)
+        {
+            switch (count)
+            {
+                case 1: return "";
+                case 2: return "di";
+                case 3: return "tri";
+                case 4: return "tetra";
+            }
+            throw new ArgumentException();
+        }
+
+        string GroupPrefix(Group group)
+        {
+            switch (group)
+            {
+                case Group.Amine: return "amino";
+                case Group.Hydroxyl: return "hydroxy";
+                case Group.Carbonyl: return "oxo";
+                case Group.Formyl: return "formyl";
+                case Group.Carboxyl: return "carboxy";
+            }
+            throw new ArgumentException();
+        }
+
+        string GroupSuffix(Group group)
+        {
+            switch (group)
+            {
+                case Group.Alkyl: return "yl";
+                case Group.Alkenyl: return "ene";
+                case Group.Alkynyl: return "yne";
+                case Group.Amine: return "amine";
+                case Group.Hydroxyl: return "anol";
+                case Group.Carbonyl: return "anone";
+                case Group.Formyl: return "anal";
+                case Group.Carboxyl: return "anoic acid";
+            }
+            throw new ArgumentException();
+        }
+        #endregion
 
         private class CarbonChainFinder
         {

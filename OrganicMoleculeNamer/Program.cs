@@ -9,6 +9,7 @@ public static class Program
     public static void Main(string[] args)
     {
         OrganicMolecule x = new OrganicMolecule(CML.ParseCML(File.OpenRead("test.cml")));
+        x.WriteStructure();
         Console.WriteLine(x.ToString());
         Console.ReadLine();
     }
