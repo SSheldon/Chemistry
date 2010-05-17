@@ -44,6 +44,7 @@
     <Compile Include="Structure\Molecule.cs" />
     <Compile Include="Structure\Organic\BondingAtomExtensions.cs" />
     <Compile Include="Structure\Organic\OrganicMolecule.cs" />
+    <Compile Include="Structure\Organic\SMILES.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.XML" />

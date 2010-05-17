@@ -17,6 +17,11 @@ namespace Chemistry.Structure.Organic
             get { return chain[i]; }
         }
 
+        public int ChainLength
+        {
+            get { return chain.Length; }
+        }
+
         public OrganicMolecule(Molecule m)
             : base(m.Atoms)
         {
@@ -137,7 +142,7 @@ namespace Chemistry.Structure.Organic
                             break;
                     }
                 }
-                if (chain[i].IsInGroup(Group.Carbonyl)) groups[Group.Hydroxyl].Remove(i);
+                if (chain[i].IsInGroup(Group.Carboxyl)) groups[Group.Hydroxyl].Remove(i);
             }
             if (groups[Group.Hydroxyl].Count == 0) groups.Remove(Group.Hydroxyl);
             if (!VerifyOrder())

@@ -53,9 +53,9 @@ namespace Chemistry.Structure.Organic
                 case Group.Carbonyl:
                     return b.HasBond(Element.O, 2);
                 case Group.Formyl:
-                    return IsInGroup(b, Group.Carbonyl) && b.HydrogenCount() > 0;
+                    return b.HasBond(Element.O, 2) && b.HydrogenCount() > 0;
                 case Group.Carboxyl:
-                    return IsInGroup(b, Group.Carboxyl) && IsInGroup(b, Group.Hydroxyl);
+                    return b.HasBond(Element.O, 2) && b.HasBond(Element.O, 1);
                 default:
                     return false;
             }
