@@ -233,6 +233,128 @@ namespace Chemistry.Structure.Organic
         }
 
         #region Naming
+        void AssignName()
+        {
+            name = GetNamePrefix() + Suffix(ChainLengthPrefix(chain.Length), GetNameSuffix());
+        }
+
+        string GetNamePrefix()
+        {
+            Dictionary<string, List<int>> prefixes = new Dictionary<string, List<int>>();
+            Group highest = HighestPrecedenceGroup();
+            foreach (Group group in groups.Keys)
+            {
+                if (group != Group.Alkyl && group != Group.Alkenyl && group != Group.Alkynyl && group != highest)
+                    prefixes.Add(GroupPrefix(group), groups[group]);
+            }
+            if (groups.ContainsKey(Group.Alkyl)) AddAlkylPrefixes(prefixes);
+            return Affix(prefixes);
+        }
+
+        void AddAlkylPrefixes(Dictionary<string, List<int>> prefixes)
+        {
+            for (int i = 0; i < chain.Length; i++)
+            {
+                foreach (BondingAtom child in chain[i])
+                {
+                    if (child.Element == Element.C && !IsInChain(child, i))
+                    {
+                        //an alkyl!
+                        string prefix = ChainLengthPrefix(AlkylLength(child, chain[i])) + "yl";
+                        if (!prefixes.ContainsKey(prefix))
+                            prefixes.Add(prefix, new List<int>());
+                        prefixes[prefix].Add(i);
+                    }
+                }
+            }
+        }
+
+        int AlkylLength(BondingAtom b, BondingAtom parent)
+        {
+            foreach (BondingAtom child in b)
+            {
+                if (child != parent) return AlkylLength(child, b) + 1;
+            }
+            return 1;
+        }
+
+        string GetNameSuffix()
+        {
+            Group highest = HighestPrecedenceGroup();
+            string suffix = "";
+            if (groups.ContainsKey(Group.Alkenyl)) suffix = Suffix(suffix, Affix("en", groups[Group.Alkenyl]));
+            if (groups.ContainsKey(Group.Alkynyl)) suffix = Suffix(suffix, Affix("yn", groups[Group.Alkynyl]));
+            if (suffix.Length == 0) suffix = "an";
+            switch (highest)
+            {
+                case Group.Alkyl:
+                case Group.Alkenyl:
+                case Group.Alkynyl:
+                    return suffix + "e";
+                default:
+                    string groupSuffix;
+                    if (highest == Group.Carboxyl || highest == Group.Formyl)
+                        groupSuffix = GroupCountPrefix(groups[highest].Count) + GroupSuffix(highest);
+                    else groupSuffix = Affix(GroupSuffix(highest), groups[highest]);
+                    if (FirstLetterIsConsonant(groupSuffix)) suffix += "e";
+                    return Suffix(suffix, groupSuffix);
+            }
+        }
+
+        static bool FirstLetterIsConsonant(string s)
+        {
+            foreach (char c in s)
+            {
+                if (char.IsLetter(c) && !(c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' || c == 'y')) return true;
+            }
+            return false;
+        }
+
+        static string Suffix(string stem, string suffix)
+        {
+            if (stem.Length != 0 && suffix.Length != 0 && char.IsDigit(suffix[0])) return stem + "-" + suffix;
+            else return stem + suffix;
+        }
+
+        static string Prefix(string stem, string prefix)
+        {
+            if (stem.Length != 0 && char.IsDigit(stem[0])) return prefix + "-" + stem;
+            else return prefix + stem;
+        }
+
+        string Affix(Dictionary<string, List<int>> affixes)
+        {
+            string affix = "";
+            while (affixes.Count != 0)
+            {
+                string group = Lowest(affixes.Keys);
+                affix = Suffix(affix, Affix(group, affixes[group]));
+                affixes.Remove(group);
+            }
+            return affix;
+        }
+
+        static string Affix(string affix, List<int> locations)
+        {
+            locations.Sort();
+            string s = "";
+            s += locations[0] + 1;
+            for (int i = 1; i < locations.Count; i++)
+                s += "," + (locations[i] + 1);
+            s += "-" + GroupCountPrefix(locations.Count) + affix;
+            return s;
+        }
+
+        static string Lowest(IEnumerable<string> affixes)
+        {
+            string lowest = null;
+            foreach (string affix in affixes)
+            {
+                if (lowest == null || affix.CompareTo(lowest) < 0) lowest = affix;
+            }
+            return lowest;
+        }
+
         static string ChainLengthPrefix(int digit, int place)
         {
             switch (place)
@@ -293,117 +415,7 @@ namespace Chemistry.Structure.Organic
             return s;
         }
 
-        void AssignName()
-        {
-            name = GetNamePrefix() + Suffix(ChainLengthPrefix(chain.Length), GetNameSuffix());
-        }
-
-        string GetNamePrefix()
-        {
-            Dictionary<string, List<int>> prefixes = new Dictionary<string, List<int>>();
-            Group highest = HighestPrecedenceGroup();
-            foreach (Group group in groups.Keys)
-            {
-                if (group != Group.Alkyl && group != Group.Alkenyl && group != Group.Alkynyl && group != highest)
-                    prefixes.Add(GroupPrefix(group), groups[group]);
-            }
-            if (groups.ContainsKey(Group.Alkyl)) AddAlkylPrefixes(prefixes);
-            return Affix(prefixes);
-        }
-
-        void AddAlkylPrefixes(Dictionary<string, List<int>> prefixes)
-        {
-            for (int i = 0; i < chain.Length; i++)
-            {
-                foreach (BondingAtom child in chain[i])
-                {
-                    if (child.Element == Element.C && !IsInChain(child, i))
-                    {
-                        //an alkyl!
-                        string prefix = ChainLengthPrefix(AlkylLength(child, chain[i])) + "yl";
-                        if (!prefixes.ContainsKey(prefix))
-                            prefixes.Add(prefix, new List<int>());
-                        prefixes[prefix].Add(i);
-                    }
-                }
-            }
-        }
-
-        int AlkylLength(BondingAtom b, BondingAtom parent)
-        {
-            foreach (BondingAtom child in b)
-            {
-                if (child != parent) return AlkylLength(child, b) + 1;
-            }
-            return 1;
-        }
-
-        string GetNameSuffix()
-        {            
-            Group highest = HighestPrecedenceGroup();
-            if (highest == Group.Alkyl) return "ane";
-            string suffix = "";
-            if (groups.ContainsKey(Group.Alkenyl)) suffix = Suffix(suffix, Affix(GroupSuffix(Group.Alkenyl), groups[Group.Alkenyl]));
-            if (groups.ContainsKey(Group.Alkynyl)) suffix = Suffix(suffix, Affix(GroupSuffix(Group.Alkynyl), groups[Group.Alkynyl]));
-            switch (highest)
-            {
-                case Group.Alkenyl:
-                case Group.Alkynyl:
-                    return suffix;
-                case Group.Carboxyl:
-                case Group.Formyl:
-                    return Suffix(suffix, GroupCountPrefix(groups[highest].Count) + GroupSuffix(highest));
-                default:
-                    return Suffix(suffix, Affix(GroupSuffix(highest), groups[highest]));
-            }
-        }
-
-        string Suffix(string stem, string suffix)
-        {
-            if (stem.Length != 0 && suffix.Length != 0 && char.IsDigit(suffix[0])) return stem + "-" + suffix;
-            else return stem + suffix;
-        }
-
-        string Prefix(string stem, string prefix)
-        {
-            if (stem.Length != 0 && char.IsDigit(stem[0])) return prefix + "-" + stem;
-            else return prefix + stem;
-        }
-
-        string Affix(Dictionary<string, List<int>> affixes)
-        {
-            string affix = "";
-            while (affixes.Count != 0)
-            {
-                string group = Lowest(affixes.Keys);
-                affix = Suffix(affix, Affix(group, affixes[group]));
-                affixes.Remove(group);
-            }
-            return affix;
-        }
-
-        string Affix(string affix, List<int> locations)
-        {
-            locations.Sort();
-            string s = "";
-            s += locations[0] + 1;
-            for (int i = 1; i < locations.Count; i++)
-                s += "," + (locations[i] + 1);
-            s += "-" + GroupCountPrefix(locations.Count) + affix;
-            return s;
-        }
-
-        string Lowest(IEnumerable<string> affixes)
-        {
-            string lowest = null;
-            foreach (string affix in affixes)
-            {
-                if (lowest == null || affix.CompareTo(lowest) < 0) lowest = affix;
-            }
-            return lowest;
-        }
-
-        string GroupCountPrefix(int count)
+        static string GroupCountPrefix(int count)
         {
             switch (count)
             {
@@ -415,7 +427,7 @@ namespace Chemistry.Structure.Organic
             throw new ArgumentException();
         }
 
-        string GroupPrefix(Group group)
+        static string GroupPrefix(Group group)
         {
             switch (group)
             {
@@ -428,18 +440,19 @@ namespace Chemistry.Structure.Organic
             throw new ArgumentException();
         }
 
-        string GroupSuffix(Group group)
+        static string GroupSuffix(Group group)
         {
             switch (group)
             {
-                case Group.Alkyl: return "yl";
-                case Group.Alkenyl: return "ene";
-                case Group.Alkynyl: return "yne";
+                case Group.Alkyl:
+                case Group.Alkenyl:
+                case Group.Alkynyl:
+                    return "e";
                 case Group.Amine: return "amine";
-                case Group.Hydroxyl: return "anol";
-                case Group.Carbonyl: return "anone";
-                case Group.Formyl: return "anal";
-                case Group.Carboxyl: return "anoic acid";
+                case Group.Hydroxyl: return "ol";
+                case Group.Carbonyl: return "one";
+                case Group.Formyl: return "al";
+                case Group.Carboxyl: return "oic acid";
             }
             throw new ArgumentException();
         }
