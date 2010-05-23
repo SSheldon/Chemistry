@@ -1,7 +1,7 @@
 ﻿namespace Chemistry
 {
     public enum Element : byte
-    { H = 1, C = 6, N, O, F }
+    { H = 1, C = 6, N, O, F, S = 16, Cl, Br = 35, I = 53 }
 
     public static class Elements
     {

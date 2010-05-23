@@ -29,6 +29,7 @@ namespace Chemistry.Structure.Organic
                 else return Group.Carbonyl;
             }
             else if (b.HasBond(Element.O, 1)) return Group.Hydroxyl;
+            else if (b.HasBond(Element.S, 1)) return Group.Sulfhydryl;
             else if (b.HasBond(Element.N, 1)) return Group.Amine;
             else if (b.HasBond(Element.C, 3)) return Group.Alkynyl;
             else if (b.HasBond(Element.C, 2)) return Group.Alkenyl;
