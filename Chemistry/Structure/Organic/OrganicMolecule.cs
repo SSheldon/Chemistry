@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Chemistry.Structure.Organic
 {
-    public enum Group { Alkyl, Alkenyl, Alkynyl, Amine, Sulfhydryl, Hydroxyl, Carbonyl, Formyl, Carboxyl }
+    public enum Group { Alkyl, Alkenyl, Alkynyl, Imine, Amine, Sulfhydryl, Hydroxyl, Carbonyl, Formyl, Nitrile, Carboxyl }
 
     public class OrganicMolecule : Molecule
     {
@@ -32,64 +32,6 @@ namespace Chemistry.Structure.Organic
         public OrganicMolecule(BondingAtom a)
             : this(new Molecule(a)) { }
 
-        #region StructureWriting
-        public void WriteStructure()
-        {
-            for (int i = 0; i < chain.Length; i++)
-            {
-                Console.Write("C" + HydrogensToString(chain[i]));
-                foreach (Bond bond in chain[i].Bonds)
-                {
-                    if (!IsInChain(bond.Target, i))
-                    {
-                        switch (bond.Order)
-                        {
-                            case 1:
-                                Console.Write("-");
-                                break;
-                            case 2:
-                                Console.Write("=");
-                                break;
-                            case 3:
-                                Console.Write("≡");
-                                break;
-                        }
-                        if (bond.Target.Element != Element.C)
-                            Console.Write(bond.Target.Element.ToString() + HydrogensToString(bond.Target));
-                        else WriteAlkyl(bond.Target, chain[i]);
-                    }
-                }
-                Console.WriteLine();
-            }
-        }
-
-        string HydrogensToString(BondingAtom b)
-        {
-            switch (b.HydrogenCount())
-            {
-                case 0:
-                    return "";
-                case 1:
-                    return "H";
-                default:
-                    return "H" + b.HydrogenCount();
-            }
-        }
-
-        void WriteAlkyl(BondingAtom b, BondingAtom parent)
-        {
-            Console.Write("C" + HydrogensToString(b));
-            foreach (BondingAtom child in b)
-            {
-                if (child != parent)
-                {
-                    WriteAlkyl(child, b);
-                    break;
-                }
-            }
-        }
-        #endregion
-
         List<int> SideChainLocations()
         {
             List<int> locs = new List<int>();
@@ -113,7 +55,7 @@ namespace Chemistry.Structure.Organic
 
         bool VerifyOrder()
         {
-            List<int> locs = HighestPrecendenceGroupLocations();
+            List<int> locs = PrincipalGroupLocations();
             int first = locs.Min();
             int last = locs.Max();
             switch (first.CompareTo(chain.Length - 1 - last))
@@ -135,7 +77,7 @@ namespace Chemistry.Structure.Organic
             }
         }
 
-        Group HighestPrecedenceGroup()
+        Group PrincipalGroup()
         {
             Group highest = Group.Alkyl;
             foreach (BondingAtom b in chain)
@@ -145,9 +87,9 @@ namespace Chemistry.Structure.Organic
             return highest;
         }
 
-        List<int> HighestPrecendenceGroupLocations()
+        List<int> PrincipalGroupLocations()
         {            
-            Group highest = HighestPrecedenceGroup();
+            Group highest = PrincipalGroup();
             if (highest == Group.Alkyl) return SideChainLocations();
             else
             {
@@ -203,7 +145,7 @@ namespace Chemistry.Structure.Organic
             }
 
             public OrganicMoleculeNamer(OrganicMolecule mol)
-                : this(mol.chain, mol.HighestPrecedenceGroup()) { }
+                : this(mol.chain, mol.PrincipalGroup()) { }
 
             void EnumerateChain()
             {
@@ -223,7 +165,18 @@ namespace Chemistry.Structure.Organic
                                 else if (bond.Order == 1 && !chain[i].HasBond(Element.O, 2)) AddGroup(Group.Hydroxyl, i);
                                 break;
                             case Element.N:
-                                if (bond.Order == 1) AddGroup(Group.Amine, i);
+                                switch (bond.Order)
+                                {
+                                    case 1:
+                                        AddGroup(Group.Amine, i);
+                                        break;
+                                    case 2:
+                                        AddGroup(Group.Imine, i);
+                                        break;
+                                    case 3:
+                                        AddGroup(Group.Nitrile, i);
+                                        break;
+                                }
                                 break;
                             case Element.C:
                                 if (bond.Order != 1)
@@ -303,7 +256,11 @@ namespace Chemistry.Structure.Organic
 
             public string GetName()
             {
-                return GetPrefix() + Suffix(ChainLengthPrefix(chain.Length), GetSuffix());
+                string suffix = GetSuffix();
+                int firstLetter;
+                for (firstLetter = 0; !char.IsLetter(suffix[firstLetter]); firstLetter++) ;
+                return Suffix(GetPrefix(),
+                    suffix.Substring(0, firstLetter) + ChainLengthPrefix(chain.Length) + (FirstLetterIsConsonant(suffix) ? "a" : "") + suffix.Substring(firstLetter));
             }
 
             string GetPrefix()
@@ -342,7 +299,7 @@ namespace Chemistry.Structure.Organic
                     default:
                         string highestGroupSuffix = GroupSuffix(highest);
                         string molGroupSuffix;
-                        if (highest == Group.Carboxyl || highest == Group.Formyl)
+                        if (highest == Group.Carboxyl || highest == Group.Formyl || highest == Group.Nitrile)
                             molGroupSuffix = GroupCountPrefix(suffixes[highestGroupSuffix].Count) + highestGroupSuffix;
                         else molGroupSuffix = Affix(highestGroupSuffix, suffixes[highestGroupSuffix]);
                         if (FirstLetterIsConsonant(molGroupSuffix)) suffix += "e";
@@ -468,11 +425,13 @@ namespace Chemistry.Structure.Organic
             {
                 switch (group)
                 {
+                    case Group.Imine: return "imino";
                     case Group.Amine: return "amino";
                     case Group.Sulfhydryl: return "sulfanyl";
                     case Group.Hydroxyl: return "hydroxy";
                     case Group.Carbonyl: return "oxo";
                     case Group.Formyl: return "formyl";
+                    case Group.Nitrile: return "cyano";
                     case Group.Carboxyl: return "carboxy";
                 }
                 throw new ArgumentException();
@@ -482,11 +441,13 @@ namespace Chemistry.Structure.Organic
             {
                 switch (group)
                 {
+                    case Group.Imine: return "imine";
                     case Group.Amine: return "amine";
                     case Group.Sulfhydryl: return "thiol";
                     case Group.Hydroxyl: return "ol";
                     case Group.Carbonyl: return "one";
                     case Group.Formyl: return "al";
+                    case Group.Nitrile: return "nitrile";
                     case Group.Carboxyl: return "oic acid";
                 }
                 throw new ArgumentException();
