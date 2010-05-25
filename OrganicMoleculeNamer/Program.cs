@@ -15,7 +15,6 @@ public static class Program
         if (openFileDialog.ShowDialog() == DialogResult.OK)
         {
             OrganicMolecule x = new OrganicMolecule(CML.ParseCML(File.OpenRead(openFileDialog.FileName)));
-            x.WriteStructure();
             Console.WriteLine(SMILES.SMILESNotation(x));
             Console.WriteLine(x.ToString());
             Console.ReadLine();

@@ -24,6 +24,7 @@ namespace Chemistry.Structure.Organic
         public OrganicMolecule(Molecule m)
             : base(m.Atoms)
         {
+            if (!m.Atoms.Any((BondingAtom b) => b.Element == Element.C)) throw new ArgumentException("Molecule is inorganic.");
             chain = new CarbonChainFinder(atoms).GetChain();
             if (!VerifyOrder()) chain = chain.Reverse().ToArray();
             name = new OrganicMoleculeNamer(this).GetName();
@@ -56,6 +57,7 @@ namespace Chemistry.Structure.Organic
         bool VerifyOrder()
         {
             List<int> locs = PrincipalGroupLocations();
+            if (locs.Count == 0) return true;
             int first = locs.Min();
             int last = locs.Max();
             switch (first.CompareTo(chain.Length - 1 - last))
@@ -257,10 +259,18 @@ namespace Chemistry.Structure.Organic
             public string GetName()
             {
                 string suffix = GetSuffix();
-                int firstLetter;
-                for (firstLetter = 0; !char.IsLetter(suffix[firstLetter]); firstLetter++) ;
-                return Suffix(GetPrefix(),
-                    suffix.Substring(0, firstLetter) + ChainLengthPrefix(chain.Length) + (FirstLetterIsConsonant(suffix) ? "a" : "") + suffix.Substring(firstLetter));
+                Console.WriteLine(suffix);
+                int firstNumber;
+                for (firstNumber = 0; firstNumber < suffix.Length && !char.IsDigit(suffix[firstNumber]) && suffix[firstNumber] != '-'; firstNumber++) ;
+                if (firstNumber == suffix.Length) firstNumber = 0;
+                int followingLetter;
+                for (followingLetter = firstNumber; followingLetter < suffix.Length && !char.IsLetter(suffix[followingLetter]); followingLetter++) ;
+                Console.WriteLine(firstNumber + " to " + followingLetter);
+                string stem = suffix.Substring(firstNumber, followingLetter - firstNumber) + ChainLengthPrefix(chain.Length) +
+                    (FirstLetterIsConsonant(suffix) ? "a" : "") + suffix.Substring(0, firstNumber) + suffix.Substring(followingLetter);
+                if (stem[0] == '-') stem = stem.Substring(1);
+                Console.WriteLine(stem);
+                return Suffix(GetPrefix(), stem);
             }
 
             string GetPrefix()
@@ -288,7 +298,12 @@ namespace Chemistry.Structure.Organic
             {
                 string suffix = "";
                 if (suffixes.ContainsKey("en")) suffix = Suffix(suffix, Affix("en", suffixes["en"]));
-                if (suffixes.ContainsKey("yn")) suffix = Suffix(suffix, Affix("yn", suffixes["yn"]));
+                if (suffixes.ContainsKey("yn"))
+                {
+                    string alkynylSuffix = Affix("yn", suffixes["yn"]);
+                    if (FirstLetterIsConsonant(alkynylSuffix) && suffix.Length > 0) suffix += "e";
+                    suffix = Suffix(suffix, alkynylSuffix);
+                }
                 if (suffix.Length == 0) suffix = "an";
                 switch (highest)
                 {
@@ -351,6 +366,7 @@ namespace Chemistry.Structure.Organic
 
             static string ChainLengthPrefix(int digit, int place)
             {
+                if (digit < 0 || digit >= 10) throw new ArgumentException("Invalid digit.");
                 switch (place)
                 {
                     case 0:
@@ -367,7 +383,7 @@ namespace Chemistry.Structure.Organic
                             case 8: return "oct";
                             case 9: return "non";
                         }
-                        throw new ArgumentException();
+                        throw new ArgumentException("Invalid digit.");
                     case 1:
                         switch (digit)
                         {
@@ -376,7 +392,7 @@ namespace Chemistry.Structure.Organic
                             case 2: return "cos";
                             default: return ChainLengthPrefix(digit, 0) + "acont";
                         }
-                    default: throw new ArgumentException();
+                    default: throw new NotImplementedException();
                 }
             }
 
@@ -417,8 +433,9 @@ namespace Chemistry.Structure.Organic
                     case 2: return "di";
                     case 3: return "tri";
                     case 4: return "tetra";
+                    case 5: return "penta";
                 }
-                throw new ArgumentException();
+                throw new NotImplementedException();
             }
 
             static string GroupPrefix(Group group)
@@ -434,7 +451,7 @@ namespace Chemistry.Structure.Organic
                     case Group.Nitrile: return "cyano";
                     case Group.Carboxyl: return "carboxy";
                 }
-                throw new ArgumentException();
+                throw new NotImplementedException();
             }
 
             static string GroupSuffix(Group group)
@@ -450,7 +467,7 @@ namespace Chemistry.Structure.Organic
                     case Group.Nitrile: return "nitrile";
                     case Group.Carboxyl: return "oic acid";
                 }
-                throw new ArgumentException();
+                throw new NotImplementedException();
             }
         }
 
@@ -463,7 +480,7 @@ namespace Chemistry.Structure.Organic
                 this.atoms = atoms;
                 chain = new List<BondingAtom>();
                 AssignCarbonChain();
-                if (!VerifyChain()) throw new InvalidOperationException();
+                if (!VerifyChain()) throw new InvalidOperationException("Not all of the molecule's functional groups are included in the chain.");
             }
 
             bool HasNonAlkylChild(BondingAtom b, BondingAtom parent)
@@ -512,13 +529,16 @@ namespace Chemistry.Structure.Organic
             {
                 int maxLength = 0;
                 BondingAtom atom = null;
-                foreach (BondingAtom b in chain)
+                foreach (BondingAtom b in atoms)
                 {
-                    int length = LongestChildChain(b, null);
-                    if (length > maxLength)
+                    if (b.Element == Element.C)
                     {
-                        maxLength = length;
-                        atom = b;
+                        int length = LongestChildChain(b, null);
+                        if (length > maxLength)
+                        {
+                            maxLength = length;
+                            atom = b;
+                        }
                     }
                 }
                 return atom;
