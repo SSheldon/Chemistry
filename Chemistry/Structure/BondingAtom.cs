@@ -23,7 +23,7 @@ namespace Chemistry.Structure
         }
     }
 
-    public class BondingAtom : IEnumerable
+    public class BondingAtom : IEnumerable<BondingAtom>
     {
         List<Bond> bonds;
         public List<Bond> Bonds
@@ -60,12 +60,17 @@ namespace Chemistry.Structure
             return false;
         }
 
-        public IEnumerator GetEnumerator()
+        IEnumerator<BondingAtom> IEnumerable<BondingAtom>.GetEnumerator()
         {
             return new BondingAtomEnumerator(this);
         }
 
-        private class BondingAtomEnumerator : IEnumerator
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return new BondingAtomEnumerator(this);
+        }
+
+        private class BondingAtomEnumerator : IEnumerator<BondingAtom>
         {
             int index;
             List<Bond> bonds;
@@ -76,7 +81,12 @@ namespace Chemistry.Structure
                 bonds = b.Bonds;
             }
 
-            public object Current
+            BondingAtom IEnumerator<BondingAtom>.Current
+            {
+                get { return bonds[index].Target; }
+            }
+
+            object IEnumerator.Current
             {
                 get { return bonds[index].Target; }
             }
@@ -90,6 +100,11 @@ namespace Chemistry.Structure
             public void Reset()
             {
                 index = -1;
+            }
+
+            public void Dispose()
+            {
+                bonds = null;
             }
         }
     }
