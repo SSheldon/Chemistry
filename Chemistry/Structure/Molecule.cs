@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Chemistry.Structure
 {
@@ -47,10 +48,7 @@ namespace Chemistry.Structure
 
         public virtual int GetElementCount(Element e)
         {
-            int count = 0;
-            foreach (BondingAtom a in atoms)
-                if (a.Element == e) count++;
-            return count;
+            return atoms.Count(a => a.Element == e);
         }
 
         public override string ToString()

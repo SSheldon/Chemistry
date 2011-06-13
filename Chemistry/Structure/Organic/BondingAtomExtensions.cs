@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using System.Linq;
 
 namespace Chemistry.Structure.Organic
 {
@@ -6,17 +7,13 @@ namespace Chemistry.Structure.Organic
     {
         public static int HydrogenCount(this BondingAtom b)
         {
-            int bondCount = 0;
-            foreach (Bond bond in b.Bonds) bondCount += bond.Order;
-            return Elements.Valence(b.Element) - bondCount;
+            return Elements.Valence(b.Element) - b.Bonds.Sum(bond => bond.Order);
         }
 
         public static bool IsNonAlkyl(this BondingAtom b)
         {
             if (b.Element != Element.C) throw new System.ArgumentException();
-            foreach (Bond bond in b.Bonds)
-                if (bond.Target.Element != Element.C || bond.Order != 1) return true;
-            return false;
+            return b.Bonds.Any(bond => bond.Target.Element != Element.C || bond.Order != 1);
         }
 
         public static Group HighestPrecedenceGroup(this BondingAtom b)
