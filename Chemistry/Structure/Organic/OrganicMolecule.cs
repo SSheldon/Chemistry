@@ -68,11 +68,7 @@ namespace Chemistry.Structure.Organic
                     return false;
                 case 0:
                     int forwardSum = locs.Sum();
-                    int backwardSum = 0;
-                    foreach (int i in locs)
-                    {
-                        backwardSum += chain.Length - 1 - i;
-                    }
+                    int backwardSum = locs.Sum(i => chain.Length - 1 - i);
                     return forwardSum <= backwardSum;
                 default:
                     return first <= last;
@@ -81,12 +77,7 @@ namespace Chemistry.Structure.Organic
 
         Group PrincipalGroup()
         {
-            Group highest = Group.Alkyl;
-            foreach (BondingAtom b in chain)
-            {
-                highest = (Group)Math.Max((int)highest, (int)b.HighestPrecedenceGroup());
-            }
-            return highest;
+            return chain.Max<BondingAtom, Group>(b => b.HighestPrecedenceGroup());
         }
 
         List<int> PrincipalGroupLocations()
@@ -107,14 +98,7 @@ namespace Chemistry.Structure.Organic
         public override int GetElementCount(Element e)
         {
             if (e == Element.H)
-            {
-                int count = 0;
-                foreach (BondingAtom a in atoms)
-                {
-                    count += a.HydrogenCount();
-                }
-                return count;
-            }
+                return atoms.Sum(a => a.HydrogenCount());
             else return base.GetElementCount(e);
         }
 
@@ -259,17 +243,14 @@ namespace Chemistry.Structure.Organic
             public string GetName()
             {
                 string suffix = GetSuffix();
-                Console.WriteLine(suffix);
                 int firstNumber;
                 for (firstNumber = 0; firstNumber < suffix.Length && !char.IsDigit(suffix[firstNumber]) && suffix[firstNumber] != '-'; firstNumber++) ;
                 if (firstNumber == suffix.Length) firstNumber = 0;
                 int followingLetter;
                 for (followingLetter = firstNumber; followingLetter < suffix.Length && !char.IsLetter(suffix[followingLetter]); followingLetter++) ;
-                Console.WriteLine(firstNumber + " to " + followingLetter);
                 string stem = suffix.Substring(firstNumber, followingLetter - firstNumber) + ChainLengthPrefix(chain.Length) +
                     (FirstLetterIsConsonant(suffix) ? "a" : "") + suffix.Substring(0, firstNumber) + suffix.Substring(followingLetter);
                 if (stem[0] == '-') stem = stem.Substring(1);
-                Console.WriteLine(stem);
                 return Suffix(GetPrefix(), stem);
             }
 
@@ -278,7 +259,7 @@ namespace Chemistry.Structure.Organic
                 string prefix = "";
                 while (prefixes.Count != 0)
                 {
-                    string group = Lowest(prefixes.Keys);
+                    string group = prefixes.Keys.Min();
                     prefix = Suffix(prefix, Affix(group, prefixes[group]));
                     prefixes.Remove(group);
                 }
@@ -352,16 +333,6 @@ namespace Chemistry.Structure.Organic
                     s += "," + (locations[i] + 1);
                 s += "-" + GroupCountPrefix(locations.Count) + affix;
                 return s;
-            }
-
-            static string Lowest(IEnumerable<string> affixes)
-            {
-                string lowest = null;
-                foreach (string affix in affixes)
-                {
-                    if (lowest == null || affix.CompareTo(lowest) < 0) lowest = affix;
-                }
-                return lowest;
             }
 
             static string ChainLengthPrefix(int digit, int place)
@@ -494,6 +465,8 @@ namespace Chemistry.Structure.Organic
                     }
                 }
                 return false;
+                //return b.Bonds.Where(bond => bond.Target != parent).Any(
+                //    bond => bond.Target.Element != Element.C || bond.Order != 1 || HasNonAlkylChild(bond.Target, b));
             }
 
             BondingAtom ChildWithLongestChain(BondingAtom b, BondingAtom parent)
@@ -523,6 +496,7 @@ namespace Chemistry.Structure.Organic
                     }
                 }
                 return max;
+                //return b.Where(child => child != parent && child.Element == Element.C).Max<BondingAtom, int>(child => LongestChildChain(child, b) + 1);
             }
 
             BondingAtom AtomWithLongestChain()
@@ -546,12 +520,14 @@ namespace Chemistry.Structure.Organic
 
             void AssignCarbonChain()
             {
-                BondingAtom b = atoms.Find((BondingAtom atom) => atom.Element == Element.C && atom.IsNonAlkyl()); //null if not found?
+                //find a non-alkyl carbon
+                BondingAtom b = atoms.Find(atom => atom.Element == Element.C && atom.IsNonAlkyl()); //null if not found?
                 if (b == null) b = AtomWithLongestChain();
                 chain.Add(b);
                 //find the 2 children with the best chains and add their chains
                 AssignChildren(b, null);
-                AssignChildren(b, b.Bonds.Find((Bond bond) => chain.Contains(bond.Target)).Target);
+                //find the child just added and use it as the parent to enumerate in the opposite direction
+                AssignChildren(b, b.First(atom => chain.Contains(atom)));
             }
 
             void AssignChildren(BondingAtom b, BondingAtom parent)
@@ -584,6 +560,7 @@ namespace Chemistry.Structure.Organic
                     if (b.Element == Element.C && b.IsNonAlkyl() && !chain.Contains(b)) return false;
                 }
                 return true;
+                //return !atoms.Any(b => b.Element == Element.C && b.IsNonAlkyl() && !chain.Contains(b));
             }
 
             bool IsEnd(BondingAtom b)
@@ -594,6 +571,7 @@ namespace Chemistry.Structure.Organic
                     if (chain.Contains(atom)) bondedCInChain++;
                 }
                 return bondedCInChain < 2;
+                //return b.Count(atom => chain.Contains(atom)) < 2;
             }
 
             public BondingAtom[] GetChain()
